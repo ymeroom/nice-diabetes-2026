@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 英國 NICE 第 2 型糖尿病臨床決策輔助互動系統 (NG28)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">N</div>
+        <div class="brand-info">
+          <h1>NICE NG28 糖尿病臨床決策輔助系統</h1>
+          <div class="tagline">
+            <span>2026 最新更新版臨床路徑</span>
+            <span class="badge badge-primary">Type 2 Diabetes in Adults</span>
+          </div>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-calculator">
+          <span>⚡</span> 一鍵處方計算器
+        </button>
+        <button class="tab-btn" data-tab="tab-staging">
+          <span>🪜</span> 階梯調藥 (Staging)
+        </button>
+        <button class="tab-btn" data-tab="tab-ckd">
+          <span>🧪</span> CKD 腎病用藥
+        </button>
+        <button class="tab-btn" data-tab="tab-sickday">
+          <span>🚨</span> 生病守則 (SADMANS)
+        </button>
+        <button class="tab-btn" data-tab="tab-stroke">
+          <span>🧠</span> 腦中風與吞嚥專區
+        </button>
+        <button class="tab-btn" data-tab="tab-remission">
+          <span>🥗</span> 飲食逆轉 (Remission)
+        </button>
+        <button class="tab-btn" data-tab="tab-audit">
+          <span>📋</span> 全人年檢清單
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-wrapper">
+
+    <!-- ==========================================
+         TAB 1: INTERACTIVE CALCULATOR
+         ========================================== -->
+    <section id="tab-calculator" class="tab-panel active">
+      <div class="grid-calculator">
+        
+        <!-- Input Form Card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title"><span>👤</span> 病患臨床參數評估 (1.11)</div>
+              <div class="card-subtitle">輸入生理指標與共病分期，即時推算 2026 NICE 處方</div>
+            </div>
+          </div>
+
+          <!-- Age -->
+          <div class="form-group">
+            <label>病患年齡 (Age): <span id="val-age" class="slider-val">52 歲</span></label>
+            <div class="range-slider-wrap">
+              <input type="range" id="calc-age" class="range-slider" min="18" max="95" value="52">
+            </div>
+            <small style="color: var(--slate-500); font-size: 0.75rem;">提示：< 40 歲為「年輕早發型」，將啟動積極強化治療。</small>
+          </div>
+
+          <!-- BMI -->
+          <div class="form-group">
+            <label>身體質量指數 (BMI): <span id="val-bmi" class="slider-val">28.5 kg/m²</span></label>
+            <div class="range-slider-wrap">
+              <input type="range" id="calc-bmi" class="range-slider" min="16.0" max="45.0" step="0.5" value="28.5">
+            </div>
+          </div>
+
+          <!-- eGFR -->
+          <div class="form-group">
+            <label>腎絲球過濾率 (eGFR): <span id="val-egfr" class="slider-val">65 ml/min</span></label>
+            <div class="range-slider-wrap">
+              <input type="range" id="calc-egfr" class="range-slider" min="10" max="120" value="65">
+            </div>
+          </div>
+
+          <!-- UACR -->
+          <div class="form-group">
+            <label>尿液微量白蛋白比值 (UACR):</label>
+            <select id="calc-uacr" class="form-select">
+              <option value="normal">正常 (UACR < 3 mg/mmol 或 < 30 mg/g)</option>
+              <option value="micro">微量白蛋白尿 (UACR 3～30 mg/mmol)</option>
+              <option value="macro">巨量白蛋白尿 (UACR > 30 mg/mmol)</option>
+            </select>
+          </div>
+
+          <!-- Comorbidities Checkboxes -->
+          <div class="form-group">
+            <label>心腦血管共病狀況 (CVD Status):</label>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-ascvd">
+                <span class="checkbox-label">確診動脈硬化心血管疾病 (ASCVD: 心梗 / 狹心症 / PAD)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-stroke">
+                <span class="checkbox-label">確診腦中風或短暫性腦缺血 (Stroke / TIA)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Heart Failure -->
+          <div class="form-group">
+            <label>慢性心臟衰竭 (Heart Failure):</label>
+            <select id="calc-hf" class="form-select">
+              <option value="none">無心臟衰竭病史</option>
+              <option value="hfref">收縮分率降低心衰竭 (HFrEF, EF ≤ 40%)</option>
+              <option value="hfpef">收縮分率保留心衰竭 (HFpEF, EF > 40%)</option>
+            </select>
+          </div>
+
+          <!-- Frailty & Dysphagia -->
+          <div class="grid-2" style="margin-bottom: 1.25rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>衰弱症 (Frailty, 1.11.2):</label>
+              <select id="calc-frailty" class="form-select">
+                <option value="none">正常無衰弱</option>
+                <option value="mild">輕度衰弱 (步態緩慢)</option>
+                <option value="moderate_severe">中重度衰弱 / 高跌倒風險</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>吞嚥功能 (Dysphagia):</label>
+              <select id="calc-dysphagia" class="form-select">
+                <option value="none">正常咀嚼吞嚥</option>
+                <option value="mild">吞嚥困難 (需磨粉/稠化)</option>
+                <option value="ng_tube">鼻胃管 / 胃造廔管灌</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Special Factors -->
+          <div class="form-group">
+            <label>特殊飲食與用藥因子:</label>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-onsu">
+                <span class="checkbox-label">目前正在使用磺醯尿素類 (SU 類: Glimepiride 等)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-oninsulin">
+                <span class="checkbox-label">目前正在使用胰島素治療 (Insulin)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-hypounaware">
+                <span class="checkbox-label">伴隨低血糖無自覺症狀 (Hypo-unawareness)</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="calc-hascarer">
+                <span class="checkbox-label">需照護員或家人協助施打胰島素</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Diet -->
+          <div class="form-group">
+            <label>飲食型態 (Diet Type):</label>
+            <select id="calc-diet" class="form-select">
+              <option value="standard">一般均衡 / 高纖飲食</option>
+              <option value="keto">生酮飲食 / 極低碳水化合物飲食 (Ketogenic)</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- Output Result Cards Column -->
+        <div>
+          <div id="rx-result-container">
+            <!-- Dynamic Injection by app.js -->
+          </div>
+
+          <!-- Target & CGM Grid -->
+          <div class="grid-2" style="margin-top: 1.5rem;">
+            <div class="card">
+              <div class="card-title" style="font-size: 1.05rem;"><span>🎯</span> 個人化 HbA1c 目標 (1.5)</div>
+              <div id="target-calc-result" style="margin-top: 0.75rem;"></div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="font-size: 1.05rem;"><span>📱</span> 連續血糖監測 (CGM, 1.7)</div>
+              <div id="cgm-calc-result" style="margin-top: 0.75rem;"></div>
+            </div>
+          </div>
+
+          <!-- Print / Export Action -->
+          <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button id="btn-print-report" class="btn btn-outline">
+              <span>🖨️</span> 列印 / 匯出臨床諮詢摘要報告
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: STAGING TIMELINE (Section 1.20)
+         ========================================== -->
+    <section id="tab-staging" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>🪜</span> 分階段給藥原則與時程軸（Staging / Stepwise SOP, Section 1.20）</div>
+            <div class="card-subtitle">「一次加一種藥，滴定至最大耐受劑量後毫不延遲銜接下一階段」</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div id="staging-timeline-box">
+            <!-- Dynamic Timeline -->
+          </div>
+
+          <div>
+            <div class="alert-box alert-info">
+              <div>
+                <strong>💡 為什麼 NICE 2026 強烈要求 Staging 分階給藥？</strong>
+                <ul style="margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85rem;">
+                  <li><strong>精準釐清副作用</strong>：避免病患同時吃多種新藥引發腹瀉或噁心時，因無法分辨而全盤停藥。</li>
+                  <li><strong>滴定至最大耐受劑量</strong>：確認第一種藥物（Metformin XR）達到最佳效果後再加第二種。</li>
+                  <li><strong>避免臨床惰性</strong>：耐受良好應「毫不延遲（as soon as tolerated）」加上排糖藥，杜絕無效等待數年。</li>
+                  <li><strong>平穩降糖防視網膜病變</strong>：避免 HbA1c 斷崖式驟降誘發暫時性視網膜微血管病變惡化。</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="alert-box alert-warning" style="margin-top: 1rem;">
+              <div>
+                <strong>🚨 滴定期間病患衛教提醒：</strong>
+                <p style="font-size: 0.85rem; margin-top: 0.25rem;">加用 SGLT-2 抑制劑時，務必同步衛教每天攝取足量水分（2000cc）、維持私密處清潔通風，並發放「SADMANS 生病停藥守則」衛教卡。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: CKD eGFR TOOL (Section 1.18 & 1.30)
+         ========================================== -->
+    <section id="tab-ckd" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>🧪</span> 慢性腎臟病 (CKD) 依 eGFR 分期處方決策地圖（Section 1.18 & 1.30）</div>
+            <div class="card-subtitle">2026 重大更新：eGFR 20～30 ml/min 仍可啟動/續用 SGLT-2i 護腎！</div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="clinical-table">
+            <thead>
+              <tr>
+                <th>eGFR 分期 (ml/min/1.73m²)</th>
+                <th>推薦第一線處方組合</th>
+                <th>輔助降糖 / 二線加藥</th>
+                <th>臨床決策機制與禁忌</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong style="color: var(--emerald);">eGFR ≥ 30</strong><br><small>輕中度腎功能不全</small></td>
+                <td><strong>Metformin XR ＋ SGLT-2 抑制劑</strong></td>
+                <td>依需求加 DPP-4i 或 GLP-1 RA</td>
+                <td>心腎微血管保護最完整。Metformin 依 eGFR 適度減量（eGFR 30～44 最大 1000mg/day）。</td>
+              </tr>
+              <tr style="background-color: var(--amber-light);">
+                <td><strong style="color: var(--amber);">eGFR 20 ～ 30</strong><br><small>【2026 重大更新！】</small></td>
+                <td>
+                  <span class="badge badge-rose">停用 Metformin</span><br>
+                  <strong style="color: var(--primary);">續用/啟動 SGLT-2 抑制劑</strong><br>
+                  <small>(Dapagliflozin / Empagliflozin 具適應症)</small>
+                </td>
+                <td><strong>加上 DPP-4 抑制劑</strong><br><small>(安全補足降糖效果)</small></td>
+                <td><strong>排糖效果雖減弱，但「降腎壓、抗發炎、延緩洗腎」保護機制完全保留！</strong>停用 Metformin 防乳酸中毒。</td>
+              </tr>
+              <tr>
+                <td><strong style="color: var(--rose);">eGFR < 20</strong><br><small>重度腎衰竭 / 洗腎期</small></td>
+                <td>
+                  <span class="badge badge-rose">停用 Metformin 與 SGLT-2i</span><br>
+                  <strong>首選 DPP-4 抑制劑 (Linagliptin 等)</strong>
+                </td>
+                <td>Pioglitazone (無心衰者)<br>或 基礎胰島素</td>
+                <td><strong>嚴禁使用磺醯尿素類 (SU 類)</strong>，避免藥物蓄積引發持久致死性低血糖。胰島素需調降劑量。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: SICK DAY RULES (SADMANS, Section 1.10)
+         ========================================== -->
+    <section id="tab-sickday" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>🚨</span> 生病應變守則（Sick Day Rules）：SADMANS 避險防線（Section 1.10）</div>
+            <div class="card-subtitle">急性發燒、嘔吐、嚴重腹瀉面臨脫水時，立即暫停以下藥物以防急性腎損傷 (AKI) 與酮酸中毒</div>
+          </div>
+        </div>
+
+        <div class="sadmans-grid">
+          <div class="sadmans-card">
+            <div class="sadmans-letter">S</div>
+            <div class="sadmans-info">
+              <h4>SGLT-2 抑制劑 (排糖藥)</h4>
+              <p>生病脫水時暫停，防範嚴重體液流失與正常血糖型酮酸中毒 (euDKA)。</p>
+            </div>
+          </div>
+
+          <div class="sadmans-card">
+            <div class="sadmans-letter">A</div>
+            <div class="sadmans-info">
+              <h4>ACEI / ARB (常見降血壓藥)</h4>
+              <p>嘔吐腹瀉脫水時暫停，避免腎絲球出球小動脈擴張引發急性腎損傷 (AKI)。</p>
+            </div>
+          </div>
+
+          <div class="sadmans-card">
+            <div class="sadmans-letter">D</div>
+            <div class="sadmans-info">
+              <h4>Diuretics (利尿劑)</h4>
+              <p>脫水時暫停，避免體液過度耗損、電解質紊亂與低血壓休克。</p>
+            </div>
+          </div>
+
+          <div class="sadmans-card">
+            <div class="sadmans-letter">M</div>
+            <div class="sadmans-info">
+              <h4>Metformin (雙胍類)</h4>
+              <p>嚴重脫水或組織缺氧時暫停，避免藥物蓄積誘發致命乳酸中毒。</p>
+            </div>
+          </div>
+
+          <div class="sadmans-card">
+            <div class="sadmans-letter">A/N</div>
+            <div class="sadmans-info">
+              <h4>NSAIDs (非類固醇消炎止痛藥)</h4>
+              <p>生病時避免服用，防止入球小動脈收縮加劇腎臟缺血性損傷。</p>
+            </div>
+          </div>
+
+          <div class="sadmans-card">
+            <div class="sadmans-letter">S</div>
+            <div class="sadmans-info">
+              <h4>Sulfonylureas (磺醯尿素類促泌劑)</h4>
+              <p>進食不足時暫停，防止體內持續釋放胰島素引發嚴重低血糖昏迷。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 1.5rem;">
+          <div class="alert-box alert-success">
+            <div>
+              <strong>💧 生病期間病患照護四大準則：</strong>
+              <ol style="margin-top: 0.4rem; padding-left: 1.2rem; font-size: 0.85rem;">
+                <li>每小時補充電解質水或清湯 100～200 ml。</li>
+                <li>每 2～4 小時測量一次血糖與記錄。</li>
+                <li><strong>打胰島素者【絕不可擅自停打基礎胰島素】！</strong></li>
+                <li>完全退燒、進食正常 24～48 小時後再行重啟上述 SADMANS 藥物。</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="alert-box alert-danger">
+            <div>
+              <strong>🚨 急診就醫紅旗警訊（Red Flags）：</strong>
+              <p style="font-size: 0.85rem; margin-top: 0.4rem;">若持續嘔吐無法喝水超過 6 小時、呼吸急促伴隨水果味（酮酸中毒徵兆）、意識不清或血糖持續 > 300 mg/dL 且尿/血酮陽性，請立即送急診！</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 5: STROKE & DYSPHAGIA
+         ========================================== -->
+    <section id="tab-stroke" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>🧠</span> 腦中風與吞嚥障礙專區（Stroke & Dysphagia Management）</div>
+            <div class="card-subtitle">整合 NICE NG28 (糖尿病)、NG128 (中風急性期) 與 NG236 (中風復健) 指引</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <div class="alert-box alert-danger">
+              <div>
+                <strong>🚫 重大用藥安全：緩釋 Metformin XR 嚴禁磨粉管灌！</strong>
+                <p style="font-size: 0.85rem; margin-top: 0.3rem;">Modified-Release Metformin XR 具有特殊高分子緩釋骨架，壓碎或溶水會破壞劑型導致藥物瞬間大量釋放（Dose Dumping），引發嚴重腸胃黏膜損傷與腹瀉，且粉末遇水膨脹極易堵塞鼻胃管！</p>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+              <div class="card-title" style="font-size: 1rem;">💊 吞嚥困難 / 管灌患者之安全替換方案</div>
+              <ul style="padding-left: 1.2rem; font-size: 0.88rem; color: var(--slate-700); margin-top: 0.5rem;">
+                <li><strong>方案 1：改用標準速效錠 (Standard-Release)</strong>：可安全壓碎磨粉或溶於水灌食。</li>
+                <li><strong>方案 2：口服懸液劑 (Oral Solution)</strong>：適用於可吞嚥稠狀物之患者。</li>
+                <li><strong>方案 3：改用 DPP-4 抑制劑</strong>：錠劑易溶易磨，且不具低血糖與脫水風險。</li>
+                <li><strong>方案 4：週效型 GLP-1 RA 皮下注射</strong>：徹底繞過腸胃吞嚥障礙，且具備降低非致死性中風實證！</li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-title" style="font-size: 1rem;">🛡️ 腦中風二級預防四大支柱 (Secondary Prevention)</div>
+              <div style="margin-top: 0.75rem;">
+                <div style="margin-bottom: 0.75rem;">
+                  <strong>1. 抗血小板 (Antiplatelet)</strong>
+                  <p style="font-size: 0.85rem; color: var(--slate-600);">首選 Clopidogrel 75mg QD（發病 24h 內可短期 DAPT 21天）。</p>
+                </div>
+                <div style="margin-bottom: 0.75rem;">
+                  <strong>2. 高強度降血脂 (Statin)</strong>
+                  <p style="font-size: 0.85rem; color: var(--slate-600);">Atorvastatin 80mg/20mg，目標 LDL-C 降幅 > 50% 或 < 1.4 mmol/L。</p>
+                </div>
+                <div style="margin-bottom: 0.75rem;">
+                  <strong>3. 積極血壓管理</strong>
+                  <p style="font-size: 0.85rem; color: var(--slate-600);">長期血壓目標控制在 < 130/80 mmHg（衰弱者 < 140/90）。</p>
+                </div>
+                <div>
+                  <strong>4. 腦血管保護降糖藥</strong>
+                  <p style="font-size: 0.85rem; color: var(--slate-600);">首選 <strong>GLP-1 RA（降低非致死性中風 24%～39%）</strong> ＋ SGLT-2i 護心腎。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 6: REMISSION & LIFESTYLE
+         ========================================== -->
+    <section id="tab-remission" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>🥗</span> 糖尿病逆轉緩解計畫（NHS Path to Remission & Healthy Living, Section 1.3）</div>
+            <div class="card-subtitle">「早期減重 10～15 公斤，清除肝臟胰臟異位脂肪，促使休眠之胰島 β 細胞甦醒」</div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="card" style="background: var(--slate-50);">
+            <div class="card-title" style="font-size: 1rem; color: var(--primary);">🥣 階段一：總代餐低熱量 (TDR)</div>
+            <p style="font-size: 0.85rem; color: var(--slate-600); margin-top: 0.5rem;">
+              在醫療與營養師監護下，執行 12 週總代餐（約 800～850 大卡/天）。啟動前需調降降糖藥與血壓藥，嚴防低血糖與脫水。
+            </p>
+          </div>
+
+          <div class="card" style="background: var(--slate-50);">
+            <div class="card-title" style="font-size: 1rem; color: var(--secondary);">🍲 階段二：漸進式食物重組</div>
+            <p style="font-size: 0.85rem; color: var(--slate-600); margin-top: 0.5rem;">
+              為期 4～6 週，分階段將高纖、低升糖指數（Low GI）、未精緻全穀物與深海魚原型食物帶回餐盤，重塑健康進食習慣。
+            </p>
+          </div>
+
+          <div class="card" style="background: var(--slate-50);">
+            <div class="card-title" style="font-size: 1rem; color: var(--amber);">🏃 階段三：長期體重維持</div>
+            <p style="font-size: 0.85rem; color: var(--slate-600); margin-top: 0.5rem;">
+              終身維持健康生活型態。減重達 10～15kg 以上，且停藥 3 個月後 HbA1c 仍維持 < 6.5% 即定義為臨床緩解（Remission）！
+            </p>
+          </div>
+        </div>
+
+        <div class="alert-box alert-info" style="margin-top: 1.5rem;">
+          <div>
+            <strong>💡 NICE 2026 日常飲食四大基石：</strong>
+            <span style="font-size: 0.85rem; margin-left: 4px;">① 高纖維低 GI 全穀豆類蔬菜、② 深海魚類 (Omega-3)、③ 嚴控飽和與反式脂肪、④ 勸阻購買昂貴之糖尿病專用代糖加工品。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 7: ANNUAL AUDIT CHECKLIST
+         ========================================== -->
+    <section id="tab-audit" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span>📋</span> 全人年度臨床品質稽核與篩檢清單（Quality Standards & Audit）</div>
+            <div class="card-subtitle">2026 新增：牙周病口腔檢查與 SGLT-2i 合格開立率評估</div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="clinical-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">狀態</th>
+                <th>年度必檢項目</th>
+                <th>建議頻率</th>
+                <th>NICE 2026 臨床指引標準與轉介紅旗</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><input type="checkbox" checked></td>
+                <td><strong>🩸 糖化血色素 (HbA1c)</strong></td>
+                <td>每 3～6 個月</td>
+                <td>依用藥安全性設定個人化目標（無低血糖藥 6.5%，具低血糖藥 7.0%，衰弱者放寬）。</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" checked></td>
+                <td><strong>🩺 腎功能 (eGFR + UACR)</strong></td>
+                <td>每年至少 1 次</td>
+                <td>抽血 eGFR 與驗尿微量白蛋白比值；eGFR 20～30 仍應續用 SGLT-2i 護腎。</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox"></td>
+                <td><strong>🦷 牙周病口腔健康 (1.37)</strong></td>
+                <td>每 3～6 個月</td>
+                <td><strong>2026 重大亮點！</strong>治好牙周炎可降 HbA1c 0.3%～0.4%，每半年轉介牙科洗牙檢查。</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox"></td>
+                <td><strong>👁️ 散瞳視網膜篩檢 (1.43)</strong></td>
+                <td>每年 1 次</td>
+                <td>突發視力喪失、虹膜紅變 (Rubeosis iridis) 或玻璃體出血應立即急診眼科轉介。</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox"></td>
+                <td><strong>🦶 完整足部感覺與脈搏 (1.41)</strong></td>
+                <td>每年 1 次</td>
+                <td>10g 單股尼龍線感覺檢查與足背動脈觸診；衛教每日足部「看摸洗剪穿」自檢。</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox"></td>
+                <td><strong>🚨 生病守則 SADMANS 檢核</strong></td>
+                <td>每年 1 次</td>
+                <td>確認病患與家屬具備急性脫水時暫停排糖藥、雙胍類與降血壓藥之自保認知。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
