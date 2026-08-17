@@ -12,7 +12,7 @@
 <body>
 
   <!-- Top Navigation Bar -->
-  <header class="navbar">
+  <header class="navbar no-print">
     <div class="nav-container">
       <div class="brand">
         <div class="brand-icon">N</div>
@@ -51,7 +51,7 @@
   </header>
 
   <!-- Main Content Area -->
-  <main class="main-wrapper">
+  <main class="main-wrapper no-print">
 
     <!-- ==========================================
          TAB 1: INTERACTIVE CALCULATOR
@@ -63,23 +63,38 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title"><span>👤</span> 病患臨床參數評估 (1.11)</div>
+              <div class="card-title"><span>👤</span> 病患臨床參數評估 (Section 1.11)</div>
               <div class="card-subtitle">輸入生理指標與共病分期，即時推算 2026 NICE 處方</div>
             </div>
+            <button id="btn-reset-form" class="btn btn-outline btn-sm" title="重設為預設值">
+              <span>🔄</span> 重設
+            </button>
           </div>
 
           <!-- Age -->
           <div class="form-group">
-            <label>病患年齡 (Age): <span id="val-age" class="slider-val">52 歲</span></label>
+            <div class="label-row">
+              <label for="calc-age">病患年齡 (Age):</label>
+              <div class="slider-val-wrap">
+                <input type="number" id="num-age" class="num-input" min="18" max="100" value="52">
+                <span class="unit">歲</span>
+              </div>
+            </div>
             <div class="range-slider-wrap">
               <input type="range" id="calc-age" class="range-slider" min="18" max="95" value="52">
             </div>
-            <small style="color: var(--slate-500); font-size: 0.75rem;">提示：< 40 歲為「年輕早發型」，將啟動積極強化治療。</small>
+            <small class="form-hint">💡 提示：< 40 歲為「年輕早發型」，NICE 建議早期積極強化三聯治療。</small>
           </div>
 
           <!-- BMI -->
           <div class="form-group">
-            <label>身體質量指數 (BMI): <span id="val-bmi" class="slider-val">28.5 kg/m²</span></label>
+            <div class="label-row">
+              <label for="calc-bmi">身體質量指數 (BMI):</label>
+              <div class="slider-val-wrap">
+                <input type="number" id="num-bmi" class="num-input" min="15.0" max="50.0" step="0.1" value="28.5">
+                <span class="unit">kg/m²</span>
+              </div>
+            </div>
             <div class="range-slider-wrap">
               <input type="range" id="calc-bmi" class="range-slider" min="16.0" max="45.0" step="0.5" value="28.5">
             </div>
@@ -87,25 +102,32 @@
 
           <!-- eGFR -->
           <div class="form-group">
-            <label>腎絲球過濾率 (eGFR): <span id="val-egfr" class="slider-val">65 ml/min</span></label>
+            <div class="label-row">
+              <label for="calc-egfr">腎絲球過濾率 (eGFR):</label>
+              <div class="slider-val-wrap">
+                <input type="number" id="num-egfr" class="num-input" min="10" max="120" value="65">
+                <span class="unit">ml/min</span>
+              </div>
+            </div>
             <div class="range-slider-wrap">
               <input type="range" id="calc-egfr" class="range-slider" min="10" max="120" value="65">
             </div>
+            <small class="form-hint">💡 2026 更新：eGFR 20～30 ml/min 仍可啟動/續用 SGLT-2i 護腎！</small>
           </div>
 
           <!-- UACR -->
           <div class="form-group">
-            <label>尿液微量白蛋白比值 (UACR):</label>
+            <label for="calc-uacr">尿液微量白蛋白比值 (UACR):</label>
             <select id="calc-uacr" class="form-select">
-              <option value="normal">正常 (UACR < 3 mg/mmol 或 < 30 mg/g)</option>
-              <option value="micro">微量白蛋白尿 (UACR 3～30 mg/mmol)</option>
-              <option value="macro">巨量白蛋白尿 (UACR > 30 mg/mmol)</option>
+              <option value="normal">正常 (< 3 mg/mmol 或 < 30 mg/g)</option>
+              <option value="micro">微量白蛋白尿 (3～30 mg/mmol 或 30～300 mg/g)</option>
+              <option value="macro">巨量白蛋白尿 (> 30 mg/mmol 或 > 300 mg/g)</option>
             </select>
           </div>
 
           <!-- Comorbidities Checkboxes -->
           <div class="form-group">
-            <label>心腦血管共病狀況 (CVD Status):</label>
+            <label>心腦血管共病狀況 (Cardiovascular Status):</label>
             <div class="checkbox-group">
               <label class="checkbox-item">
                 <input type="checkbox" id="calc-ascvd">
@@ -120,7 +142,7 @@
 
           <!-- Heart Failure -->
           <div class="form-group">
-            <label>慢性心臟衰竭 (Heart Failure):</label>
+            <label for="calc-hf">慢性心臟衰竭 (Heart Failure):</label>
             <select id="calc-hf" class="form-select">
               <option value="none">無心臟衰竭病史</option>
               <option value="hfref">收縮分率降低心衰竭 (HFrEF, EF ≤ 40%)</option>
@@ -131,15 +153,15 @@
           <!-- Frailty & Dysphagia -->
           <div class="grid-2" style="margin-bottom: 1.25rem;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label>衰弱症 (Frailty, 1.11.2):</label>
+              <label for="calc-frailty">衰弱症評估 (Frailty, 1.11.2):</label>
               <select id="calc-frailty" class="form-select">
                 <option value="none">正常無衰弱</option>
-                <option value="mild">輕度衰弱 (步態緩慢)</option>
+                <option value="mild">輕度衰弱 (步態緩慢/自理尚可)</option>
                 <option value="moderate_severe">中重度衰弱 / 高跌倒風險</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label>吞嚥功能 (Dysphagia):</label>
+              <label for="calc-dysphagia">吞嚥功能 (Dysphagia):</label>
               <select id="calc-dysphagia" class="form-select">
                 <option value="none">正常咀嚼吞嚥</option>
                 <option value="mild">吞嚥困難 (需磨粉/稠化)</option>
@@ -150,7 +172,7 @@
 
           <!-- Special Factors -->
           <div class="form-group">
-            <label>特殊飲食與用藥因子:</label>
+            <label>用藥安全與自我管理因子:</label>
             <div class="checkbox-group">
               <label class="checkbox-item">
                 <input type="checkbox" id="calc-onsu">
@@ -173,9 +195,9 @@
 
           <!-- Diet -->
           <div class="form-group">
-            <label>飲食型態 (Diet Type):</label>
+            <label for="calc-diet">飲食型態 (Diet Type):</label>
             <select id="calc-diet" class="form-select">
-              <option value="standard">一般均衡 / 高纖飲食</option>
+              <option value="standard">一般均衡 / 高纖原型飲食</option>
               <option value="keto">生酮飲食 / 極低碳水化合物飲食 (Ketogenic)</option>
             </select>
           </div>
@@ -200,11 +222,26 @@
             </div>
           </div>
 
-          <!-- Print / Export Action -->
-          <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
-            <button id="btn-print-report" class="btn btn-outline">
-              <span>🖨️</span> 列印 / 匯出臨床諮詢摘要報告
-            </button>
+          <!-- Report Preview & Print Action Bar -->
+          <div class="card" style="margin-top: 1.5rem; background: var(--slate-900); color: white; border: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>📋</span> 臨床諮詢與處方決策報告
+                </div>
+                <div style="font-size: 0.82rem; color: var(--slate-300); margin-top: 2px;">
+                  支援一鍵預覽、A4 排版直接列印、複製至病歷系統 (EMR) 或下載文字報告
+                </div>
+              </div>
+              <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+                <button id="btn-open-report" class="btn btn-secondary">
+                  <span>👁️</span> 預覽並列印報告
+                </button>
+                <button id="btn-quick-copy" class="btn btn-outline" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">
+                  <span>📋</span> 複製文字
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -560,6 +597,47 @@
     </section>
 
   </main>
+
+  <!-- ==========================================
+       MODAL: CLINICAL CONSULTATION REPORT PREVIEW
+       ========================================== -->
+  <div id="report-modal" class="modal-backdrop no-print" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📄</span> 臨床諮詢與處方決策摘要報告 (A4 列印預覽)
+        </div>
+        <button id="btn-close-modal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- The Printable Document Container -->
+        <div id="printable-report-content" class="printable-document">
+          <!-- Dynamically Injected by app.js -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <span class="report-timestamp-badge" id="modal-timestamp">產出時間：2026-08-17</span>
+        </div>
+        <div class="modal-footer-actions">
+          <button id="btn-modal-copy" class="btn btn-outline">
+            <span>📋</span> 複製完整純文字
+          </button>
+          <button id="btn-modal-download" class="btn btn-outline">
+            <span>📥</span> 下載文字檔 (.txt)
+          </button>
+          <button id="btn-modal-print" class="btn btn-primary">
+            <span>🖨️</span> 立即列印 / 存為 PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast-notification no-print" style="display: none;"></div>
 
   <script src="app.js"></script>
 </body>

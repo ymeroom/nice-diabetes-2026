@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Reactive State for Patient Calculator
-  const state = {
+  const defaultState = {
     age: 52,
     bmi: 28.5,
     egfr: 65,
@@ -35,13 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
     hasCarer: false
   };
 
+  let state = { ...defaultState };
+
   // DOM Elements for Inputs
-  const ageInput = document.getElementById('calc-age');
-  const ageVal = document.getElementById('val-age');
-  const bmiInput = document.getElementById('calc-bmi');
-  const bmiVal = document.getElementById('val-bmi');
-  const egfrInput = document.getElementById('calc-egfr');
-  const egfrVal = document.getElementById('val-egfr');
+  const ageSlider = document.getElementById('calc-age');
+  const ageNum = document.getElementById('num-age');
+  const bmiSlider = document.getElementById('calc-bmi');
+  const bmiNum = document.getElementById('num-bmi');
+  const egfrSlider = document.getElementById('calc-egfr');
+  const egfrNum = document.getElementById('num-egfr');
   const uacrSelect = document.getElementById('calc-uacr');
   
   const ascvdCheck = document.getElementById('calc-ascvd');
@@ -56,30 +58,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const hypoUnawareCheck = document.getElementById('calc-hypounaware');
   const hasCarerCheck = document.getElementById('calc-hascarer');
 
-  // Input Listeners
-  if (ageInput) {
-    ageInput.addEventListener('input', (e) => {
-      state.age = parseInt(e.target.value);
-      if (ageVal) ageVal.textContent = `${state.age} 歲`;
+  const resetBtn = document.getElementById('btn-reset-form');
+
+  // Sync Slider & Number Input Helper
+  function bindSliderAndNum(slider, num, min, max, step, stateKey, isFloat = false) {
+    if (!slider || !num) return;
+
+    slider.addEventListener('input', (e) => {
+      const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+      num.value = isFloat ? val.toFixed(1) : val;
+      state[stateKey] = val;
+      evaluateAll();
+    });
+
+    num.addEventListener('input', (e) => {
+      let val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+      if (isNaN(val)) return;
+      if (val < min) val = min;
+      if (val > max) val = max;
+      slider.value = val;
+      state[stateKey] = val;
       evaluateAll();
     });
   }
 
-  if (bmiInput) {
-    bmiInput.addEventListener('input', (e) => {
-      state.bmi = parseFloat(e.target.value);
-      if (bmiVal) bmiVal.textContent = `${state.bmi.toFixed(1)} kg/m²`;
-      evaluateAll();
-    });
-  }
-
-  if (egfrInput) {
-    egfrInput.addEventListener('input', (e) => {
-      state.egfr = parseInt(e.target.value);
-      if (egfrVal) egfrVal.textContent = `${state.egfr} ml/min`;
-      evaluateAll();
-    });
-  }
+  bindSliderAndNum(ageSlider, ageNum, 18, 100, 1, 'age', false);
+  bindSliderAndNum(bmiSlider, bmiNum, 15.0, 50.0, 0.1, 'bmi', true);
+  bindSliderAndNum(egfrSlider, egfrNum, 10, 120, 1, 'egfr', false);
 
   if (uacrSelect) uacrSelect.addEventListener('change', (e) => { state.uacr = e.target.value; evaluateAll(); });
   if (ascvdCheck) ascvdCheck.addEventListener('change', (e) => { state.ascvd = e.target.checked; evaluateAll(); });
@@ -94,18 +99,42 @@ document.addEventListener('DOMContentLoaded', () => {
   if (hypoUnawareCheck) hypoUnawareCheck.addEventListener('change', (e) => { state.hypoUnaware = e.target.checked; evaluateAll(); });
   if (hasCarerCheck) hasCarerCheck.addEventListener('change', (e) => { state.hasCarer = e.target.checked; evaluateAll(); });
 
+  // Reset Handler
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      state = { ...defaultState };
+      if (ageSlider) ageSlider.value = state.age;
+      if (ageNum) ageNum.value = state.age;
+      if (bmiSlider) bmiSlider.value = state.bmi;
+      if (bmiNum) bmiNum.value = state.bmi;
+      if (egfrSlider) egfrSlider.value = state.egfr;
+      if (egfrNum) egfrNum.value = state.egfr;
+      if (uacrSelect) uacrSelect.value = state.uacr;
+      if (ascvdCheck) ascvdCheck.checked = state.ascvd;
+      if (strokeCheck) strokeCheck.checked = state.stroke;
+      if (hfSelect) hfSelect.value = state.hf;
+      if (frailtySelect) frailtySelect.value = state.frailty;
+      if (dysphagiaSelect) dysphagiaSelect.value = state.dysphagia;
+      if (dietSelect) dietSelect.value = state.diet;
+      if (onSuCheck) onSuCheck.checked = state.onSu;
+      if (onInsulinCheck) onInsulinCheck.checked = state.onInsulin;
+      if (hypoUnawareCheck) hypoUnawareCheck.checked = state.hypoUnaware;
+      if (hasCarerCheck) hasCarerCheck.checked = state.hasCarer;
+
+      evaluateAll();
+      showToast('已重設為預設病患參數！');
+    });
+  }
+
   // Core Clinical Decision Engine
   function evaluateAll() {
     renderRecommendation();
     renderTargetsAndCgm();
     renderStagingTimeline();
-    renderClinicalAlerts();
+    updatePrintableReport();
   }
 
-  function renderRecommendation() {
-    const rxContainer = document.getElementById('rx-result-container');
-    if (!rxContainer) return;
-
+  function getCalculatedData() {
     let drugs = [];
     let warnings = [];
     let rationale = [];
@@ -196,8 +225,46 @@ document.addEventListener('DOMContentLoaded', () => {
       warnings.push("⚠️ 避免使用磺醯尿素類 (SU 類)：腎功能不全或衰弱患者代謝變慢，極易引發致命低血糖與跌倒！");
     }
 
-    // Render HTML
-    let drugPillsHtml = drugs.map(d => `
+    // Target
+    let target = "≤ 48 mmol/mol (6.5%)";
+    let targetDesc = "生活型態介入 或 使用不具低血糖風險藥物（如 Metformin + SGLT-2i）時的標準目標。在無低血糖負擔下追求最大器官保護。";
+    let targetBadge = "badge-emerald";
+
+    if (state.frailty !== 'none' || state.age >= 80) {
+      target = "7.5% ～ 8.0%+ (58～64 mmol/mol)";
+      targetDesc = "高齡衰弱長者：以生活品質、防跌倒與避免低血糖昏迷為首要，目標彈性放寬。";
+      targetBadge = "badge-amber";
+    } else if (state.onSu || state.onInsulin) {
+      target = "≤ 53 mmol/mol (7.0%)";
+      targetDesc = "處方中包含具低血糖風險藥物（磺醯尿素類 SU 或胰島素），需平衡血管保護與防範低血糖。";
+      targetBadge = "badge-primary";
+    }
+
+    // CGM Eligibility
+    let eligibleReasons = [];
+    if (state.onInsulin) eligibleReasons.push("正在接受胰島素治療（isCGM 具高度成本效益）");
+    if (state.hypoUnaware) eligibleReasons.push("伴隨低血糖無自覺症狀 (Hypo-unawareness)，需 CGM 高低警報防昏迷");
+    if (state.hasCarer && state.onInsulin) eligibleReasons.push("需照護員協助注射胰島素，CGM 可快速掃描避免訪視間隔低血糖");
+    if (state.stroke || state.dysphagia !== 'none') eligibleReasons.push("偏癱或失能長者無法自行採指尖血，CGM 提供免扎針獨立性");
+
+    return {
+      drugs,
+      warnings,
+      rationale,
+      target,
+      targetDesc,
+      targetBadge,
+      eligibleReasons
+    };
+  }
+
+  function renderRecommendation() {
+    const rxContainer = document.getElementById('rx-result-container');
+    if (!rxContainer) return;
+
+    const data = getCalculatedData();
+
+    let drugPillsHtml = data.drugs.map(d => `
       <div class="drug-pill ${d.type === 'primary' ? 'primary-drug' : 'glp1-drug'}">
         <span>💊</span>
         <div>
@@ -207,13 +274,13 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `).join('');
 
-    let warningsHtml = warnings.map(w => `
+    let warningsHtml = data.warnings.map(w => `
       <div class="alert-box alert-danger" style="margin-top: 0.6rem;">
         <div>${w}</div>
       </div>
     `).join('');
 
-    let rationaleHtml = rationale.map(r => `
+    let rationaleHtml = data.rationale.map(r => `
       <li style="margin-bottom: 0.35rem; color: var(--slate-700); font-size: 0.88rem;">✓ ${r}</li>
     `).join('');
 
@@ -242,51 +309,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const cgmBox = document.getElementById('cgm-calc-result');
     if (!targetBox || !cgmBox) return;
 
-    // HbA1c Target
-    let target = "≤ 48 mmol/mol (6.5%)";
-    let targetDesc = "生活型態介入 或 使用不具低血糖風險藥物（如 Metformin + SGLT-2i）時的標準目標。在無低血糖負擔下追求最大器官保護。";
-    let targetBadge = "badge-emerald";
-
-    if (state.frailty !== 'none' || state.age >= 80) {
-      target = "7.5% ～ 8.0%+ (58～64 mmol/mol)";
-      targetDesc = "高齡衰弱長者：以生活品質、防跌倒與避免低血糖昏迷為首要，目標彈性放寬。";
-      targetBadge = "badge-amber";
-    } else if (state.onSu || state.onInsulin) {
-      target = "≤ 53 mmol/mol (7.0%)";
-      targetDesc = "處方中包含具低血糖風險藥物（磺醯尿素類 SU 或胰島素），需平衡血管保護與防範低血糖。";
-      targetBadge = "badge-primary";
-    }
+    const data = getCalculatedData();
 
     targetBox.innerHTML = `
       <div style="display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem;">
-        <span style="font-size: 1.6rem; font-weight: 800; color: var(--primary);">${target}</span>
-        <span class="badge ${targetBadge}">個別化目標</span>
+        <span style="font-size: 1.6rem; font-weight: 800; color: var(--primary);">${data.target}</span>
+        <span class="badge ${data.targetBadge}">個別化目標</span>
       </div>
-      <p style="font-size: 0.88rem; color: var(--slate-600);">${targetDesc}</p>
+      <p style="font-size: 0.88rem; color: var(--slate-600);">${data.targetDesc}</p>
     `;
 
-    // CGM Eligibility
-    let eligibleReasons = [];
-    if (state.onInsulin) {
-      eligibleReasons.push("正在接受胰島素治療（isCGM 具高度成本效益）");
-    }
-    if (state.hypoUnaware) {
-      eligibleReasons.push("伴隨低血糖無自覺症狀 (Hypo-unawareness)，需 CGM 高低警報防昏迷");
-    }
-    if (state.hasCarer && state.onInsulin) {
-      eligibleReasons.push("需照護員協助注射胰島素，CGM 可快速掃描避免訪視間隔低血糖");
-    }
-    if (state.stroke || state.dysphagia !== 'none') {
-      eligibleReasons.push("偏癱或失能長者無法自行採指尖血，CGM 提供免扎針獨立性");
-    }
-
-    if (eligibleReasons.length > 0) {
+    if (data.eligibleReasons.length > 0) {
       cgmBox.innerHTML = `
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
           <span class="badge badge-emerald" style="font-size: 0.85rem;">✅ 符合 NICE 優先推薦條件</span>
         </div>
         <ul style="font-size: 0.85rem; color: var(--slate-700); padding-left: 1.2rem;">
-          ${eligibleReasons.map(r => `<li>✓ ${r}</li>`).join('')}
+          ${data.eligibleReasons.map(r => `<li>✓ ${r}</li>`).join('')}
         </ul>
       `;
     } else {
@@ -329,18 +368,267 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  function renderClinicalAlerts() {
-    // updates reactive widgets if needed
+  // Generate Report HTML for Modal & Printing
+  function updatePrintableReport() {
+    const reportContainer = document.getElementById('printable-report-content');
+    const timestampSpan = document.getElementById('modal-timestamp');
+    if (!reportContainer) return;
+
+    const data = getCalculatedData();
+    const now = new Date();
+    const dateStr = now.getFullYear() + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日 ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    
+    if (timestampSpan) timestampSpan.textContent = `產出時間：${dateStr}`;
+
+    const uacrLabels = { normal: '正常 (< 3 mg/mmol)', micro: '微量白蛋白尿 (3～30 mg/mmol)', macro: '巨量白蛋白尿 (> 30 mg/mmol)' };
+    const hfLabels = { none: '無', hfref: 'HFrEF (收縮分率降低)', hfpef: 'HFpEF (收縮分率保留)' };
+    const frailtyLabels = { none: '正常無衰弱', mild: '輕度衰弱', moderate_severe: '中重度衰弱 (高跌倒風險)' };
+    const dysphagiaLabels = { none: '正常', mild: '吞嚥困難 (需磨粉/稠化)', ng_tube: '鼻胃管 / 胃造廔管灌' };
+    const dietLabels = { standard: '一般均衡原型飲食', keto: '生酮 / 極低碳水飲食' };
+
+    let drugsListHtml = data.drugs.map((d, i) => `<tr><td><strong>${i + 1}. ${d.name}</strong></td><td>${d.tag}</td></tr>`).join('');
+    let warningsListHtml = data.warnings.map(w => `<div class="doc-alert">${w}</div>`).join('');
+    let cgmHtml = data.eligibleReasons.length > 0 ? data.eligibleReasons.map(r => `<li>✓ ${r}</li>`).join('') : '<li>目前未符合常規公費推薦條件，必要時可短期自費評估。</li>';
+
+    reportContainer.innerHTML = `
+      <div class="doc-header">
+        <div>
+          <h2>第 2 型糖尿病臨床諮詢與處方決策摘要報告</h2>
+          <div style="font-size: 0.9rem; font-weight: 600; color: #475569; margin-top: 2px;">依據英國 NICE NG28 (2026 更新版)、NG128 (中風) & NG236 臨床指引</div>
+        </div>
+        <div class="doc-meta">
+          <div><strong>報告產出日期：</strong> ${dateStr}</div>
+          <div><strong>臨床決策版本：</strong> NICE NG28 2026.02</div>
+        </div>
+      </div>
+
+      <!-- Section 1: Patient Profile -->
+      <div class="doc-section">
+        <div class="doc-section-title">一、 病患生理指標與風險分期 (Pre-treatment Staging, Section 1.11)</div>
+        <table class="doc-table">
+          <tr>
+            <th style="width: 25%;">病患年齡</th>
+            <td style="width: 25%;">${state.age} 歲 ${state.age < 40 ? '<strong style="color: #b91c1c;">(年輕早發型)</strong>' : ''}</td>
+            <th style="width: 25%;">身體質量指數 (BMI)</th>
+            <td style="width: 25%;">${state.bmi.toFixed(1)} kg/m² ${state.bmi >= 27.5 ? '(合併肥胖)' : ''}</td>
+          </tr>
+          <tr>
+            <th>腎功能 (eGFR)</th>
+            <td><strong>${state.egfr} ml/min</strong> ${state.egfr < 30 ? '<span style="color:#b91c1c;">(CKD Stage 4-5)</span>' : ''}</td>
+            <th>尿蛋白比值 (UACR)</th>
+            <td>${uacrLabels[state.uacr] || state.uacr}</td>
+          </tr>
+          <tr>
+            <th>動脈硬化心血管 (ASCVD)</th>
+            <td>${state.ascvd ? '✓ 確診心血管疾病 (MI/PAD/CAD)' : '無'}</td>
+            <th>腦中風 / TIA 病史</th>
+            <td>${state.stroke ? '✓ 確診腦中風或 TIA' : '無'}</td>
+          </tr>
+          <tr>
+            <th>心臟衰竭 (Heart Failure)</th>
+            <td>${hfLabels[state.hf] || state.hf}</td>
+            <th>衰弱症評估 (Frailty)</th>
+            <td>${frailtyLabels[state.frailty] || state.frailty}</td>
+          </tr>
+          <tr>
+            <th>吞嚥功能 (Dysphagia)</th>
+            <td>${dysphagiaLabels[state.dysphagia] || state.dysphagia}</td>
+            <th>飲食型態 (Diet Type)</th>
+            <td>${dietLabels[state.diet] || state.diet}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Section 2: Recommended Regimen -->
+      <div class="doc-section">
+        <div class="doc-section-title">二、 NICE 2026 推薦處方方案與給藥階梯 (Recommended Regimen & Staging)</div>
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th style="width: 65%;">推薦藥物與劑型</th>
+              <th style="width: 35%;">臨床定位與指引實證</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${drugsListHtml}
+          </tbody>
+        </table>
+        ${warningsListHtml}
+      </div>
+
+      <!-- Section 3: Glycaemic Targets & CGM -->
+      <div class="doc-section">
+        <div class="doc-section-title">三、 個人化糖化血色素目標與 CGM 評估 (Glycaemic Target & CGM)</div>
+        <div class="doc-grid-2">
+          <div style="border: 1px solid #cbd5e1; padding: 0.75rem; border-radius: 6px;">
+            <div style="font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">🎯 個人化 HbA1c 目標：${data.target}</div>
+            <div style="font-size: 0.85rem; color: #475569;">${data.targetDesc}</div>
+          </div>
+          <div style="border: 1px solid #cbd5e1; padding: 0.75rem; border-radius: 6px;">
+            <div style="font-weight: 700; color: #0d9488; margin-bottom: 4px;">📱 連續血糖監測 (CGM) 適應症：</div>
+            <ul style="font-size: 0.85rem; color: #475569; padding-left: 1.2rem; margin: 0;">
+              ${cgmHtml}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Sick Day Rules -->
+      <div class="doc-section">
+        <div class="doc-section-title">四、 生病停藥守則（Sick Day Rules - SADMANS）病患須知</div>
+        <div style="font-size: 0.85rem; line-height: 1.5; background: #f8fafc; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+          <strong>當發生急性發燒、持續嘔吐、嚴重腹瀉面臨脫水時，請依醫囑暫停以下藥物：</strong><br>
+          • <strong>S</strong>GLT-2 抑制劑（排糖藥）｜• <strong>A</strong>CEI/ARB（降血壓藥）｜• <strong>D</strong>iuretics（利尿劑）｜• <strong>M</strong>etformin（雙胍類）｜• <strong>A/N</strong>SAIDs（消炎止痛藥）｜• <strong>S</strong>ulfonylureas（磺醯尿素促泌劑）。<br>
+          <span style="color: #b91c1c;">⚠️ 注意：正在施打胰島素者【絕不可自行停打基礎胰島素】！每小時補充 100～200ml 水分，症狀緩解正常進食 24～48 小時後再重啟用藥。</span>
+        </div>
+      </div>
+
+      <!-- Footer Sign-off Block -->
+      <div class="doc-footer-sign">
+        <div>臨床主治醫師 / 衛教師簽章：_______________________</div>
+        <div>諮詢院所 / 科別：_______________________</div>
+      </div>
+    `;
+  }
+
+  // Generate Clean Plain Text for Clipboard EMR Paste
+  function generateReportText() {
+    const data = getCalculatedData();
+    const now = new Date();
+    const dateStr = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate();
+
+    let text = `【NICE 2026 第 2 型糖尿病臨床決策與處方摘要報告】\n`;
+    text += `產出日期：${dateStr}\n`;
+    text += `指引依據：NICE NG28 (2026 Updated), NG128 & NG236\n\n`;
+    text += `[一、病患臨床資料 (Pre-treatment Staging)]\n`;
+    text += `• 年齡：${state.age} 歲 ${state.age < 40 ? '(<40歲 早發型)' : ''}\n`;
+    text += `• BMI：${state.bmi.toFixed(1)} kg/m²\n`;
+    text += `• 腎功能：eGFR ${state.egfr} ml/min | UACR：${state.uacr}\n`;
+    text += `• 心血管狀況：ASCVD: ${state.ascvd ? '是' : '否'} | 腦中風/TIA: ${state.stroke ? '是' : '否'} | 心衰竭: ${state.hf}\n`;
+    text += `• 衰弱症：${state.frailty} | 吞嚥功能：${state.dysphagia} | 飲食：${state.diet}\n\n`;
+    text += `[二、2026 NICE 推薦處方方案]\n`;
+    data.drugs.forEach((d, i) => {
+      text += `${i + 1}. ${d.name} [${d.tag}]\n`;
+    });
+    if (data.warnings.length > 0) {
+      text += `\n[重大用藥安全警語]\n`;
+      data.warnings.forEach(w => { text += `• ${w}\n`; });
+    }
+    text += `\n[三、控制目標與 CGM 建議]\n`;
+    text += `• 個人化 HbA1c 目標：${data.target} (${data.targetDesc})\n`;
+    if (data.eligibleReasons.length > 0) {
+      text += `• CGM 建議：符合 NICE 優先推薦條件 (${data.eligibleReasons.join('；')})\n`;
+    }
+    text += `\n[四、生病停藥守則 (Sick Day Rules)]\n`;
+    text += `生病發燒/腹瀉脫水時暫停 SADMANS 藥物 (SGLT-2i, ACEI/ARB, Diuretics, Metformin, NSAIDs, SU)；打胰島素者切勿停用基礎胰島素！\n`;
+    
+    return text;
+  }
+
+  // Toast Notification Helper
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.innerHTML = `<span>✓</span> <div>${msg}</div>`;
+    toast.style.display = 'flex';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 3500);
+  }
+
+  // Modal & Print Actions
+  const reportModal = document.getElementById('report-modal');
+  const openReportBtn = document.getElementById('btn-open-report');
+  const closeModalBtn = document.getElementById('btn-close-modal');
+  const modalPrintBtn = document.getElementById('btn-modal-print');
+  const modalCopyBtn = document.getElementById('btn-modal-copy');
+  const quickCopyBtn = document.getElementById('btn-quick-copy');
+  const modalDownloadBtn = document.getElementById('btn-modal-download');
+
+  function openModal() {
+    updatePrintableReport();
+    if (reportModal) reportModal.style.display = 'flex';
+  }
+
+  function closeModal() {
+    if (reportModal) reportModal.style.display = 'none';
+  }
+
+  if (openReportBtn) openReportBtn.addEventListener('click', openModal);
+  if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+
+  // Close modal when clicking on backdrop
+  if (reportModal) {
+    reportModal.addEventListener('click', (e) => {
+      if (e.target === reportModal) closeModal();
+    });
+  }
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && reportModal && reportModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  // Print Action
+  if (modalPrintBtn) {
+    modalPrintBtn.addEventListener('click', () => {
+      updatePrintableReport();
+      window.print();
+    });
+  }
+
+  // Copy to Clipboard Action
+  function copyReport() {
+    const text = generateReportText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('已成功複製臨床報告文字！可直接貼入病歷或通訊軟體。');
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('已成功複製臨床報告文字！');
+    } catch (err) {
+      alert('複製失敗，請手動複製報告內容。');
+    }
+    document.body.removeChild(ta);
+  }
+
+  if (modalCopyBtn) modalCopyBtn.addEventListener('click', copyReport);
+  if (quickCopyBtn) quickCopyBtn.addEventListener('click', copyReport);
+
+  // Download Report as TXT file
+  if (modalDownloadBtn) {
+    modalDownloadBtn.addEventListener('click', () => {
+      const text = generateReportText();
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NICE_2026_Diabetes_Report_${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('已開始下載文字報告檔案 (.txt)！');
+    });
   }
 
   // Initial Run
   evaluateAll();
-
-  // Print Report Handler
-  const printBtn = document.getElementById('btn-print-report');
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      window.print();
-    });
-  }
 });
