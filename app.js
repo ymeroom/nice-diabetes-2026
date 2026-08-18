@@ -1,47 +1,56 @@
 // 2026 NICE NG28 Clinical Interactive Decision Support System
 document.addEventListener('DOMContentLoaded', () => {
+  const engine = window.ClinicalEngine;
+  if (!engine) {
+    throw new Error('ClinicalEngine failed to load before app.js');
+  }
+
   // Navigation Tabs
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabPanels = document.querySelectorAll('.tab-panel');
 
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetTab = btn.getAttribute('data-tab');
-      
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabPanels.forEach(p => p.classList.remove('active'));
+  function activateTab(btn, moveFocus = false) {
+    const targetTab = btn.getAttribute('data-tab');
+    tabButtons.forEach(b => {
+      const selected = b === btn;
+      b.classList.toggle('active', selected);
+      b.setAttribute('aria-selected', String(selected));
+      b.tabIndex = selected ? 0 : -1;
+    });
+    tabPanels.forEach(panel => {
+      const selected = panel.id === targetTab;
+      panel.classList.toggle('active', selected);
+      panel.hidden = !selected;
+    });
+    if (moveFocus) btn.focus();
+  }
 
-      btn.classList.add('active');
-      const activePanel = document.getElementById(targetTab);
-      if (activePanel) activePanel.classList.add('active');
+  tabButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => activateTab(btn));
+    btn.addEventListener('keydown', (event) => {
+      let nextIndex = null;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabButtons.length;
+      if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = tabButtons.length - 1;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      activateTab(tabButtons[nextIndex], true);
     });
   });
 
   // Reactive State for Patient Calculator
-  const defaultState = {
-    age: 52,
-    bmi: 28.5,
-    egfr: 65,
-    uacr: 'normal', // normal, micro, macro
-    ascvd: false,
-    stroke: false,
-    hf: 'none', // none, hfref, hfpef
-    frailty: 'none', // none, mild, moderate_severe
-    dysphagia: 'none', // none, mild, ng_tube
-    diet: 'standard', // standard, keto
-    onSu: false,
-    onInsulin: false,
-    hypoUnaware: false,
-    hasCarer: false
-  };
+  const defaultState = { ...engine.defaultState };
 
   let state = { ...defaultState };
 
   // DOM Elements for Inputs
   const ageSlider = document.getElementById('calc-age');
   const ageNum = document.getElementById('num-age');
+  const diagnosisAgeNum = document.getElementById('num-diagnosis-age');
   const bmiSlider = document.getElementById('calc-bmi');
   const bmiNum = document.getElementById('num-bmi');
+  const highRiskEthnicityCheck = document.getElementById('calc-highrisk-ethnicity');
   const egfrSlider = document.getElementById('calc-egfr');
   const egfrNum = document.getElementById('num-egfr');
   const uacrSelect = document.getElementById('calc-uacr');
@@ -50,54 +59,176 @@ document.addEventListener('DOMContentLoaded', () => {
   const strokeCheck = document.getElementById('calc-stroke');
   const hfSelect = document.getElementById('calc-hf');
   const frailtySelect = document.getElementById('calc-frailty');
+  const sgltFrailtyRiskCheck = document.getElementById('calc-sglt-frailty-risk');
   const dysphagiaSelect = document.getElementById('calc-dysphagia');
   const dietSelect = document.getElementById('calc-diet');
 
   const onSuCheck = document.getElementById('calc-onsu');
   const onInsulinCheck = document.getElementById('calc-oninsulin');
+  const onMdiCheck = document.getElementById('calc-onmdi');
+  const recurrentSevereHypoCheck = document.getElementById('calc-recurrenthypo');
   const hypoUnawareCheck = document.getElementById('calc-hypounaware');
-  const hasCarerCheck = document.getElementById('calc-hascarer');
+  const cannotSelfMonitorCheck = document.getElementById('calc-cannotselfmonitor');
+  const needsMonitoringHelpCheck = document.getElementById('calc-needsmonitoringhelp');
+  const eightChecksDailyCheck = document.getElementById('calc-eightchecks');
 
   const resetBtn = document.getElementById('btn-reset-form');
+  const numericInputError = document.getElementById('numeric-input-error');
+
+  const numericInputs = [ageNum, diagnosisAgeNum, bmiNum, egfrNum].filter(Boolean);
+
+  function hasInvalidNumericInput() {
+    return numericInputs.some(input => input.getAttribute('aria-invalid') === 'true');
+  }
+
+  function updateReportActionAvailability() {
+    const invalid = hasInvalidNumericInput();
+    document.querySelectorAll('#btn-open-report, #btn-quick-copy, #btn-modal-copy, #btn-modal-download, #btn-modal-print')
+      .forEach(button => { button.disabled = invalid; });
+  }
+
+  function updateNumericErrorMessage() {
+    if (!numericInputError) return;
+    const invalidInputs = numericInputs.filter(input => input.getAttribute('aria-invalid') === 'true');
+    if (invalidInputs.length === 0) {
+      numericInputError.hidden = true;
+      numericInputError.textContent = '';
+      return;
+    }
+    const names = invalidInputs.map(input => input.getAttribute('aria-label') || '數值欄位');
+    numericInputError.textContent = `請修正：${names.join('、')}（請輸入範圍內且符合步進的數值）。`;
+    numericInputError.hidden = false;
+  }
+
+  function setNumericValidity(input, valid) {
+    input.setAttribute('aria-invalid', String(!valid));
+    updateReportActionAvailability();
+    updateNumericErrorMessage();
+  }
+
+  function updateNumericState(slider, num, value, stateKey) {
+    slider.value = value;
+    if (stateKey === 'age') {
+      const ages = engine.normalizeAges(value, state.diagnosisAge);
+      state.age = ages.age;
+      state.diagnosisAge = ages.diagnosisAge;
+      if (diagnosisAgeNum) {
+        diagnosisAgeNum.value = ages.diagnosisAge;
+        setNumericValidity(diagnosisAgeNum, true);
+      }
+    } else {
+      state[stateKey] = value;
+    }
+    setNumericValidity(num, true);
+    evaluateAll();
+  }
 
   // Sync Slider & Number Input Helper
   function bindSliderAndNum(slider, num, min, max, step, stateKey, isFloat = false) {
     if (!slider || !num) return;
 
     slider.addEventListener('input', (e) => {
-      const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+      const val = engine.normalizeNumber(e.target.value, min, max, step);
+      if (val === null) return;
       num.value = isFloat ? val.toFixed(1) : val;
-      state[stateKey] = val;
-      evaluateAll();
+      updateNumericState(slider, num, val, stateKey);
     });
 
     num.addEventListener('input', (e) => {
-      let val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
-      if (isNaN(val)) return;
-      if (val < min) val = min;
-      if (val > max) val = max;
-      slider.value = val;
-      state[stateKey] = val;
-      evaluateAll();
+      const rawValue = e.target.value;
+      const enteredValue = Number(rawValue);
+      const normalizedValue = engine.normalizeNumber(rawValue, min, max, step);
+      const valid = rawValue.trim() !== ''
+        && normalizedValue !== null
+        && Math.abs(normalizedValue - enteredValue) < 1e-9;
+      setNumericValidity(num, valid);
+      if (valid) updateNumericState(slider, num, normalizedValue, stateKey);
     });
+
+    const commitNumber = (e) => {
+      let val = engine.normalizeNumber(e.target.value, min, max, step);
+      if (val === null) val = state[stateKey];
+      num.value = isFloat ? val.toFixed(1) : val;
+      updateNumericState(slider, num, val, stateKey);
+    };
+    num.addEventListener('change', commitNumber);
+    num.addEventListener('blur', commitNumber);
   }
 
   bindSliderAndNum(ageSlider, ageNum, 18, 100, 1, 'age', false);
   bindSliderAndNum(bmiSlider, bmiNum, 15.0, 50.0, 0.1, 'bmi', true);
   bindSliderAndNum(egfrSlider, egfrNum, 10, 120, 1, 'egfr', false);
 
+  if (diagnosisAgeNum) {
+    diagnosisAgeNum.addEventListener('input', (e) => {
+      const rawValue = e.target.value;
+      const val = Number(rawValue);
+      const normalizedValue = engine.normalizeNumber(rawValue, 18, state.age, 1);
+      const valid = rawValue.trim() !== ''
+        && normalizedValue !== null
+        && Math.abs(normalizedValue - val) < 1e-9;
+      setNumericValidity(diagnosisAgeNum, valid);
+      if (valid) {
+        state.diagnosisAge = normalizedValue;
+        evaluateAll();
+      }
+    });
+    const commitDiagnosisAge = (e) => {
+      const enteredValue = typeof e.target.value === 'string' && e.target.value.trim() === ''
+        ? state.diagnosisAge
+        : e.target.value;
+      const ages = engine.normalizeAges(state.age, enteredValue);
+      diagnosisAgeNum.value = ages.diagnosisAge;
+      state.diagnosisAge = ages.diagnosisAge;
+      setNumericValidity(diagnosisAgeNum, true);
+      evaluateAll();
+    };
+    diagnosisAgeNum.addEventListener('change', commitDiagnosisAge);
+    diagnosisAgeNum.addEventListener('blur', commitDiagnosisAge);
+  }
+
+  function syncDependentControls() {
+    state = engine.normalizeUiDependencies(state);
+    if (sgltFrailtyRiskCheck) {
+      sgltFrailtyRiskCheck.disabled = state.frailty === 'none';
+      sgltFrailtyRiskCheck.checked = state.sgltFrailtyRisk;
+    }
+    if (onMdiCheck) {
+      onMdiCheck.disabled = !state.onInsulin;
+      onMdiCheck.checked = state.onMdi;
+    }
+    if (needsMonitoringHelpCheck) {
+      needsMonitoringHelpCheck.disabled = !state.onInsulin;
+      needsMonitoringHelpCheck.checked = state.needsMonitoringHelp;
+    }
+  }
+
   if (uacrSelect) uacrSelect.addEventListener('change', (e) => { state.uacr = e.target.value; evaluateAll(); });
+  if (highRiskEthnicityCheck) highRiskEthnicityCheck.addEventListener('change', (e) => { state.highRiskEthnicity = e.target.checked; evaluateAll(); });
   if (ascvdCheck) ascvdCheck.addEventListener('change', (e) => { state.ascvd = e.target.checked; evaluateAll(); });
   if (strokeCheck) strokeCheck.addEventListener('change', (e) => { state.stroke = e.target.checked; evaluateAll(); });
   if (hfSelect) hfSelect.addEventListener('change', (e) => { state.hf = e.target.value; evaluateAll(); });
-  if (frailtySelect) frailtySelect.addEventListener('change', (e) => { state.frailty = e.target.value; evaluateAll(); });
+  if (frailtySelect) frailtySelect.addEventListener('change', (e) => {
+    state.frailty = e.target.value;
+    syncDependentControls();
+    evaluateAll();
+  });
+  if (sgltFrailtyRiskCheck) sgltFrailtyRiskCheck.addEventListener('change', (e) => { state.sgltFrailtyRisk = e.target.checked; evaluateAll(); });
   if (dysphagiaSelect) dysphagiaSelect.addEventListener('change', (e) => { state.dysphagia = e.target.value; evaluateAll(); });
   if (dietSelect) dietSelect.addEventListener('change', (e) => { state.diet = e.target.value; evaluateAll(); });
   
   if (onSuCheck) onSuCheck.addEventListener('change', (e) => { state.onSu = e.target.checked; evaluateAll(); });
-  if (onInsulinCheck) onInsulinCheck.addEventListener('change', (e) => { state.onInsulin = e.target.checked; evaluateAll(); });
+  if (onInsulinCheck) onInsulinCheck.addEventListener('change', (e) => {
+    state.onInsulin = e.target.checked;
+    syncDependentControls();
+    evaluateAll();
+  });
+  if (onMdiCheck) onMdiCheck.addEventListener('change', (e) => { state.onMdi = e.target.checked; evaluateAll(); });
+  if (recurrentSevereHypoCheck) recurrentSevereHypoCheck.addEventListener('change', (e) => { state.recurrentSevereHypo = e.target.checked; evaluateAll(); });
   if (hypoUnawareCheck) hypoUnawareCheck.addEventListener('change', (e) => { state.hypoUnaware = e.target.checked; evaluateAll(); });
-  if (hasCarerCheck) hasCarerCheck.addEventListener('change', (e) => { state.hasCarer = e.target.checked; evaluateAll(); });
+  if (cannotSelfMonitorCheck) cannotSelfMonitorCheck.addEventListener('change', (e) => { state.cannotSelfMonitor = e.target.checked; evaluateAll(); });
+  if (needsMonitoringHelpCheck) needsMonitoringHelpCheck.addEventListener('change', (e) => { state.needsMonitoringHelp = e.target.checked; evaluateAll(); });
+  if (eightChecksDailyCheck) eightChecksDailyCheck.addEventListener('change', (e) => { state.eightChecksDaily = e.target.checked; evaluateAll(); });
 
   // Reset Handler
   if (resetBtn) {
@@ -105,8 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state = { ...defaultState };
       if (ageSlider) ageSlider.value = state.age;
       if (ageNum) ageNum.value = state.age;
+      if (diagnosisAgeNum) diagnosisAgeNum.value = state.diagnosisAge;
       if (bmiSlider) bmiSlider.value = state.bmi;
       if (bmiNum) bmiNum.value = state.bmi;
+      if (highRiskEthnicityCheck) highRiskEthnicityCheck.checked = state.highRiskEthnicity;
       if (egfrSlider) egfrSlider.value = state.egfr;
       if (egfrNum) egfrNum.value = state.egfr;
       if (uacrSelect) uacrSelect.value = state.uacr;
@@ -114,12 +247,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (strokeCheck) strokeCheck.checked = state.stroke;
       if (hfSelect) hfSelect.value = state.hf;
       if (frailtySelect) frailtySelect.value = state.frailty;
+      if (sgltFrailtyRiskCheck) sgltFrailtyRiskCheck.checked = state.sgltFrailtyRisk;
       if (dysphagiaSelect) dysphagiaSelect.value = state.dysphagia;
       if (dietSelect) dietSelect.value = state.diet;
       if (onSuCheck) onSuCheck.checked = state.onSu;
       if (onInsulinCheck) onInsulinCheck.checked = state.onInsulin;
+      if (onMdiCheck) onMdiCheck.checked = state.onMdi;
+      if (recurrentSevereHypoCheck) recurrentSevereHypoCheck.checked = state.recurrentSevereHypo;
       if (hypoUnawareCheck) hypoUnawareCheck.checked = state.hypoUnaware;
-      if (hasCarerCheck) hasCarerCheck.checked = state.hasCarer;
+      if (cannotSelfMonitorCheck) cannotSelfMonitorCheck.checked = state.cannotSelfMonitor;
+      if (needsMonitoringHelpCheck) needsMonitoringHelpCheck.checked = state.needsMonitoringHelp;
+      if (eightChecksDailyCheck) eightChecksDailyCheck.checked = state.eightChecksDaily;
+      numericInputs.forEach(input => input.setAttribute('aria-invalid', 'false'));
+      syncDependentControls();
+      updateReportActionAvailability();
+      updateNumericErrorMessage();
 
       evaluateAll();
       showToast('已重設為預設病患參數！');
@@ -131,131 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRecommendation();
     renderTargetsAndCgm();
     renderStagingTimeline();
-    updatePrintableReport();
+    if (reportModal && reportModal.style.display === 'flex') updatePrintableReport();
   }
 
   function getCalculatedData() {
-    let drugs = [];
-    let warnings = [];
-    let rationale = [];
-
-    const isEarlyOnset = state.age < 40;
-    const isObese = state.bmi >= 27.5; // Asian/Taiwan obesity cutoff
-    const hasHF = state.hf !== 'none';
-    const hasASCVD = state.ascvd || state.stroke;
-    const isFrail = state.frailty !== 'none';
-    const hasDysphagia = state.dysphagia !== 'none';
-    const isKeto = state.diet === 'keto';
-    const egfr = state.egfr;
-
-    // Metformin logic
-    if (egfr >= 30) {
-      if (hasDysphagia) {
-        drugs.push({
-          name: "Metformin 標準速效錠 (可磨粉) 或 水劑",
-          type: "primary",
-          tag: "第一線基石 (速效/液體)"
-        });
-        warnings.push("⚠️ 吞嚥困難注意：緩釋型 Metformin XR 嚴禁磨粉管灌！已自動為您切換為標準速效錠 (Standard-Release) 或口服懸液劑。");
-      } else {
-        drugs.push({
-          name: "Metformin 緩釋劑型 (Modified-Release XR)",
-          type: "primary",
-          tag: "2026 首選基石"
-        });
-      }
-      rationale.push("Metformin 緩釋錠 (XR) 可顯著減少腸胃不適，提升長期順從性。");
-    } else {
-      warnings.push("🚨 eGFR < 30 ml/min：Metformin 禁用（蓄積乳酸中毒風險），處方中已自動排除。");
-    }
-
-    // SGLT-2i logic
-    if (isKeto) {
-      warnings.push("🚨 生酮/極低碳水飲食警告：SGLT-2 抑制劑併用生酮極易誘發【正常血糖型酮酸中毒 (euDKA)】！在調整飲食前禁止啟動排糖藥。");
-    } else if (egfr >= 20) {
-      if (isFrail && state.frailty === 'moderate_severe') {
-        warnings.push("⚠️ 重度衰弱評估：患者體液不足或低血壓風險高，慎用 SGLT-2 抑制劑，建議以 DPP-4 抑制劑為優先。");
-        drugs.push({ name: "DPP-4 抑制劑 (安全首選)", type: "glp1", tag: "衰弱安全首選" });
-      } else {
-        drugs.push({
-          name: "SGLT-2 抑制劑 (Dapa / Empa)",
-          type: "primary",
-          tag: hasHF ? "心衰竭首選" : (egfr < 30 ? "腎臟保護基石" : "心腎保護基石")
-        });
-        if (egfr < 30 && egfr >= 20) {
-          rationale.push("2026 重大更新：eGFR 20～30 ml/min 仍可啟動/續用 SGLT-2i (Dapagliflozin/Empagliflozin) 延緩洗腎！");
-          drugs.push({ name: "DPP-4 抑制劑 (補足降糖)", type: "glp1", tag: "輔助降糖" });
-        }
-      }
-    } else {
-      // eGFR < 20
-      drugs.push({ name: "DPP-4 抑制劑 (Linagliptin 等)", type: "primary", tag: "末期腎病首選" });
-      rationale.push("eGFR < 20 ml/min：SGLT-2 抑制劑停用，首選安全性高之 DPP-4 抑制劑。");
-    }
-
-    // GLP-1 RA / Tirzepatide logic
-    if (hasASCVD || state.stroke) {
-      drugs.push({
-        name: "GLP-1 受體促效劑 (Semaglutide 1mg/週 / Liraglutide / Dulaglutide)",
-        type: "glp1",
-        tag: state.stroke ? "腦血管保護/降中風" : "ASCVD 心血管保護"
-      });
-      rationale.push("腦血管/ASCVD 實證：GLP-1 RA 顯著降低非致死性中風 (Non-fatal Stroke) 24%～39% 與 3-item MACE！");
-    } else if (isEarlyOnset) {
-      drugs.push({
-        name: "GLP-1 RA 或 Tirzepatide (猛健樂)",
-        type: "glp1",
-        tag: "早發型 (<40歲) 積極三聯"
-      });
-      rationale.push("1.16 節早發型亮點：<40歲發病者累積心腎風險極高，強烈建議早期併用 GLP-1 RA 或 Tirzepatide 強化治療！");
-    } else if (isObese && egfr >= 30) {
-      drugs.push({
-        name: "GLP-1 RA 或 Tirzepatide (減重導向)",
-        type: "glp1",
-        tag: "肥胖代謝合併"
-      });
-      rationale.push("肥胖合併第 2 型糖尿病：優先選用具備減重 5%～15%+ 效益之腸泌素針劑。");
-    }
-
-    // Warnings on SU & TZD
-    if (hasHF) {
-      warnings.push("🚫 心臟衰竭禁忌：嚴禁使用 TZD (Pioglitazone 吡格列酮)，防範水分滯留加重心衰！");
-    }
-    if (egfr < 30 || isFrail) {
-      warnings.push("⚠️ 避免使用磺醯尿素類 (SU 類)：腎功能不全或衰弱患者代謝變慢，極易引發致命低血糖與跌倒！");
-    }
-
-    // Target
-    let target = "≤ 48 mmol/mol (6.5%)";
-    let targetDesc = "生活型態介入 或 使用不具低血糖風險藥物（如 Metformin + SGLT-2i）時的標準目標。在無低血糖負擔下追求最大器官保護。";
-    let targetBadge = "badge-emerald";
-
-    if (state.frailty !== 'none' || state.age >= 80) {
-      target = "7.5% ～ 8.0%+ (58～64 mmol/mol)";
-      targetDesc = "高齡衰弱長者：以生活品質、防跌倒與避免低血糖昏迷為首要，目標彈性放寬。";
-      targetBadge = "badge-amber";
-    } else if (state.onSu || state.onInsulin) {
-      target = "≤ 53 mmol/mol (7.0%)";
-      targetDesc = "處方中包含具低血糖風險藥物（磺醯尿素類 SU 或胰島素），需平衡血管保護與防範低血糖。";
-      targetBadge = "badge-primary";
-    }
-
-    // CGM Eligibility
-    let eligibleReasons = [];
-    if (state.onInsulin) eligibleReasons.push("正在接受胰島素治療（isCGM 具高度成本效益）");
-    if (state.hypoUnaware) eligibleReasons.push("伴隨低血糖無自覺症狀 (Hypo-unawareness)，需 CGM 高低警報防昏迷");
-    if (state.hasCarer && state.onInsulin) eligibleReasons.push("需照護員協助注射胰島素，CGM 可快速掃描避免訪視間隔低血糖");
-    if (state.stroke || state.dysphagia !== 'none') eligibleReasons.push("偏癱或失能長者無法自行採指尖血，CGM 提供免扎針獨立性");
-
-    return {
-      drugs,
-      warnings,
-      rationale,
-      target,
-      targetDesc,
-      targetBadge,
-      eligibleReasons
-    };
+    return engine.calculate(state);
   }
 
   function renderRecommendation() {
@@ -331,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       cgmBox.innerHTML = `
         <div style="font-size: 0.88rem; color: var(--slate-600);">
-          目前未符合胰島素/嚴重低血糖之公費推薦標準。若有血糖劇烈波動疑慮，可自費短期配戴 2～4 週以利評估 TIR 與飲食回饋。
+          目前輸入條件未符合 NICE NG28 1.7 的 CGM 優先推薦條件。仍可由具 CGM 專業的照護團隊進行個別評估。
         </div>
       `;
     }
@@ -341,29 +363,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const timelineContainer = document.getElementById('staging-timeline-box');
     if (!timelineContainer) return;
 
+    const data = getCalculatedData();
+    const stepsHtml = data.timeline.map((step, index) => `
+      <div class="timeline-item">
+        <div class="timeline-dot">${index + 1}</div>
+        <div class="timeline-content">
+          <div class="timeline-title">${step.title}</div>
+          <div class="timeline-desc">${step.description}</div>
+        </div>
+      </div>
+    `).join('');
+
     timelineContainer.innerHTML = `
       <div class="timeline">
-        <div class="timeline-item">
-          <div class="timeline-dot">1</div>
-          <div class="timeline-content">
-            <div class="timeline-title">第 0 週：啟動 Metformin 緩釋錠 (XR)</div>
-            <div class="timeline-desc">從 500mg QD 隨餐起步，評估腸胃耐受性，每 1～2 週逐步滴定至最大耐受劑量 (1000mg～2000mg/day)。</div>
-          </div>
-        </div>
-        <div class="timeline-item">
-          <div class="timeline-dot">2</div>
-          <div class="timeline-content">
-            <div class="timeline-title">第 2～4 週：毫不延遲加上 SGLT-2 抑制劑</div>
-            <div class="timeline-desc">確認 Metformin 耐受後，立即加入 Dapagliflozin 10mg 或 Empagliflozin 10mg；衛教多喝水與生病停藥守則 (Sick Day Rules)。</div>
-          </div>
-        </div>
-        <div class="timeline-item">
-          <div class="timeline-dot">3</div>
-          <div class="timeline-content">
-            <div class="timeline-title">第 8～12 週：評估接續加藥 (GLP-1 RA / Tirzepatide)</div>
-            <div class="timeline-desc">若為 ASCVD、早發型 (<40歲) 或未達 HbA1c 目標，依序加入週效型 GLP-1 RA (Semaglutide 0.25mg 起) 或 Tirzepatide。</div>
-          </div>
-        </div>
+        ${stepsHtml || '<div class="alert-box alert-danger">目前沒有可自動建議的初始藥物，請轉介糖尿病專科進行個別評估。</div>'}
       </div>
     `;
   }
@@ -385,10 +398,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const frailtyLabels = { none: '正常無衰弱', mild: '輕度衰弱', moderate_severe: '中重度衰弱 (高跌倒風險)' };
     const dysphagiaLabels = { none: '正常', mild: '吞嚥困難 (需磨粉/稠化)', ng_tube: '鼻胃管 / 胃造廔管灌' };
     const dietLabels = { standard: '一般均衡原型飲食', keto: '生酮 / 極低碳水飲食' };
+    const cgmCriteriaSummary = [
+      state.onInsulin && '胰島素治療',
+      state.onMdi && '多次每日胰島素注射',
+      state.recurrentSevereHypo && '反覆／嚴重低血糖',
+      state.hypoUnaware && '低血糖感知受損',
+      state.cannotSelfMonitor && '無法自行指尖採血',
+      state.needsMonitoringHelp && '需要他人協助監測',
+      state.eightChecksDaily && '每日至少 8 次指尖採血'
+    ].filter(Boolean).join('；') || '未勾選特定條件';
 
     let drugsListHtml = data.drugs.map((d, i) => `<tr><td><strong>${i + 1}. ${d.name}</strong></td><td>${d.tag}</td></tr>`).join('');
     let warningsListHtml = data.warnings.map(w => `<div class="doc-alert">${w}</div>`).join('');
-    let cgmHtml = data.eligibleReasons.length > 0 ? data.eligibleReasons.map(r => `<li>✓ ${r}</li>`).join('') : '<li>目前未符合常規公費推薦條件，必要時可短期自費評估。</li>';
+    let cgmHtml = data.eligibleReasons.length > 0 ? data.eligibleReasons.map(r => `<li>✓ ${r}</li>`).join('') : '<li>目前輸入條件未符合 NICE NG28 1.7 優先推薦條件，請由專業團隊個別評估。</li>';
 
     reportContainer.innerHTML = `
       <div class="doc-header">
@@ -408,9 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <table class="doc-table">
           <tr>
             <th style="width: 25%;">病患年齡</th>
-            <td style="width: 25%;">${state.age} 歲 ${state.age < 40 ? '<strong style="color: #b91c1c;">(年輕早發型)</strong>' : ''}</td>
+            <td style="width: 25%;">目前 ${state.age} 歲；確診 ${state.diagnosisAge} 歲 ${data.clinicalFlags.isEarlyOnset ? '<strong style="color: #b91c1c;">(早發型)</strong>' : ''}</td>
             <th style="width: 25%;">身體質量指數 (BMI)</th>
-            <td style="width: 25%;">${state.bmi.toFixed(1)} kg/m² ${state.bmi >= 27.5 ? '(合併肥胖)' : ''}</td>
+            <td style="width: 25%;">${state.bmi.toFixed(1)} kg/m² ${data.clinicalFlags.isObese ? `(達肥胖門檻 ${data.clinicalFlags.obesityThreshold})` : ''}<br><small>族群相關 BMI 門檻：${state.highRiskEthnicity ? '已啟用 27.5' : '一般 30'}</small></td>
           </tr>
           <tr>
             <th>腎功能 (eGFR)</th>
@@ -421,8 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <tr>
             <th>動脈硬化心血管 (ASCVD)</th>
             <td>${state.ascvd ? '✓ 確診心血管疾病 (MI/PAD/CAD)' : '無'}</td>
-            <th>腦中風 / TIA 病史</th>
-            <td>${state.stroke ? '✓ 確診腦中風或 TIA' : '無'}</td>
+            <th>缺血性腦中風 / TIA 病史</th>
+            <td>${state.stroke ? '✓ 確診缺血性腦中風或 TIA' : '無'}</td>
           </tr>
           <tr>
             <th>心臟衰竭 (Heart Failure)</th>
@@ -435,6 +457,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${dysphagiaLabels[state.dysphagia] || state.dysphagia}</td>
             <th>飲食型態 (Diet Type)</th>
             <td>${dietLabels[state.diet] || state.diet}</td>
+          </tr>
+          <tr>
+            <th>SGLT-2 衰弱風險</th>
+            <td>${state.sgltFrailtyRisk ? '已勾選（體液不足／低血壓）' : '未勾選'}</td>
+            <th>CGM 判定條件</th>
+            <td>${cgmCriteriaSummary}</td>
           </tr>
         </table>
       </div>
@@ -479,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="font-size: 0.85rem; line-height: 1.5; background: #f8fafc; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
           <strong>當發生急性發燒、持續嘔吐、嚴重腹瀉面臨脫水時，請依醫囑暫停以下藥物：</strong><br>
           • <strong>S</strong>GLT-2 抑制劑（排糖藥）｜• <strong>A</strong>CEI/ARB（降血壓藥）｜• <strong>D</strong>iuretics（利尿劑）｜• <strong>M</strong>etformin（雙胍類）｜• <strong>A/N</strong>SAIDs（消炎止痛藥）｜• <strong>S</strong>ulfonylureas（磺醯尿素促泌劑）。<br>
-          <span style="color: #b91c1c;">⚠️ 注意：正在施打胰島素者【絕不可自行停打基礎胰島素】！每小時補充 100～200ml 水分，症狀緩解正常進食 24～48 小時後再重啟用藥。</span>
+          <span style="color: #b91c1c;">⚠️ 注意：正在施打胰島素者【絕不可自行停打基礎胰島素】！若無限水醫囑可少量頻繁補水；心衰竭或重度腎病者請依醫療團隊指示。重啟用藥時點須依病況與醫囑。</span>
         </div>
       </div>
 
@@ -501,11 +529,12 @@ document.addEventListener('DOMContentLoaded', () => {
     text += `產出日期：${dateStr}\n`;
     text += `指引依據：NICE NG28 (2026 Updated), NG128 & NG236\n\n`;
     text += `[一、病患臨床資料 (Pre-treatment Staging)]\n`;
-    text += `• 年齡：${state.age} 歲 ${state.age < 40 ? '(<40歲 早發型)' : ''}\n`;
-    text += `• BMI：${state.bmi.toFixed(1)} kg/m²\n`;
+    text += `• 目前年齡：${state.age} 歲 | 確診年齡：${state.diagnosisAge} 歲 ${data.clinicalFlags.isEarlyOnset ? '(早發型)' : ''}\n`;
+    text += `• BMI：${state.bmi.toFixed(1)} kg/m² | 族群相關 BMI 門檻：${state.highRiskEthnicity ? '已啟用 27.5' : '一般 30'}\n`;
     text += `• 腎功能：eGFR ${state.egfr} ml/min | UACR：${state.uacr}\n`;
-    text += `• 心血管狀況：ASCVD: ${state.ascvd ? '是' : '否'} | 腦中風/TIA: ${state.stroke ? '是' : '否'} | 心衰竭: ${state.hf}\n`;
-    text += `• 衰弱症：${state.frailty} | 吞嚥功能：${state.dysphagia} | 飲食：${state.diet}\n\n`;
+    text += `• 心血管狀況：ASCVD: ${state.ascvd ? '是' : '否'} | 缺血性腦中風/TIA: ${state.stroke ? '是' : '否'} | 心衰竭: ${state.hf}\n`;
+    text += `• 衰弱症：${state.frailty} | SGLT-2 衰弱風險：${state.sgltFrailtyRisk ? '是' : '否'} | 吞嚥功能：${state.dysphagia} | 飲食：${state.diet}\n`;
+    text += `• CGM 判定條件：胰島素 ${state.onInsulin ? '是' : '否'}／MDI ${state.onMdi ? '是' : '否'}／嚴重低血糖 ${state.recurrentSevereHypo ? '是' : '否'}／感知受損 ${state.hypoUnaware ? '是' : '否'}／無法自測 ${state.cannotSelfMonitor ? '是' : '否'}／需協助 ${state.needsMonitoringHelp ? '是' : '否'}／每日≥8次 ${state.eightChecksDaily ? '是' : '否'}\n\n`;
     text += `[二、2026 NICE 推薦處方方案]\n`;
     data.drugs.forEach((d, i) => {
       text += `${i + 1}. ${d.name} [${d.tag}]\n`;
@@ -518,6 +547,8 @@ document.addEventListener('DOMContentLoaded', () => {
     text += `• 個人化 HbA1c 目標：${data.target} (${data.targetDesc})\n`;
     if (data.eligibleReasons.length > 0) {
       text += `• CGM 建議：符合 NICE 優先推薦條件 (${data.eligibleReasons.join('；')})\n`;
+    } else {
+      text += `• CGM 建議：目前輸入條件未符合 NICE 1.7 優先推薦條件。\n`;
     }
     text += `\n[四、生病停藥守則 (Sick Day Rules)]\n`;
     text += `生病發燒/腹瀉脫水時暫停 SADMANS 藥物 (SGLT-2i, ACEI/ARB, Diuretics, Metformin, NSAIDs, SU)；打胰島素者切勿停用基礎胰島素！\n`;
@@ -544,14 +575,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalCopyBtn = document.getElementById('btn-modal-copy');
   const quickCopyBtn = document.getElementById('btn-quick-copy');
   const modalDownloadBtn = document.getElementById('btn-modal-download');
+  const modalDialog = reportModal ? reportModal.querySelector('.modal-dialog') : null;
+  const modalBackground = [document.querySelector('header'), document.querySelector('main')].filter(Boolean);
+  let previouslyFocusedElement = null;
 
   function openModal() {
+    if (hasInvalidNumericInput()) {
+      const firstInvalid = numericInputs.find(input => input.getAttribute('aria-invalid') === 'true');
+      if (firstInvalid) firstInvalid.focus();
+      showToast('請先修正超出範圍或空白的數值欄位。');
+      return;
+    }
     updatePrintableReport();
+    previouslyFocusedElement = document.activeElement;
     if (reportModal) reportModal.style.display = 'flex';
+    modalBackground.forEach(background => { background.inert = true; });
+    if (closeModalBtn) closeModalBtn.focus();
+    else if (modalDialog) modalDialog.focus();
   }
 
   function closeModal() {
     if (reportModal) reportModal.style.display = 'none';
+    modalBackground.forEach(background => { background.inert = false; });
+    if (previouslyFocusedElement && typeof previouslyFocusedElement.focus === 'function') {
+      previouslyFocusedElement.focus();
+    }
   }
 
   if (openReportBtn) openReportBtn.addEventListener('click', openModal);
@@ -566,8 +614,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Close on Escape key
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && reportModal && reportModal.style.display === 'flex') {
-      closeModal();
+    if (!reportModal || reportModal.style.display !== 'flex') return;
+    if (e.key === 'Escape') return closeModal();
+    if (e.key !== 'Tab') return;
+
+    const focusable = Array.from(reportModal.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(element => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+    if (focusable.length === 0) {
+      e.preventDefault();
+      if (modalDialog) modalDialog.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
     }
   });
 
@@ -630,5 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Run
+  syncDependentControls();
   evaluateAll();
 });

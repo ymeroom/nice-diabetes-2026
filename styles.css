@@ -291,6 +291,27 @@ body {
   border-radius: 4px;
 }
 
+.slider-val-wrap:has(.num-input[aria-invalid="true"]) {
+  border-color: var(--rose);
+  background: var(--rose-light);
+}
+
+.num-input[aria-invalid="true"] {
+  color: #9f1239;
+}
+
+.form-error-summary {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #fecdd3;
+  border-left: 4px solid var(--rose);
+  border-radius: var(--radius-sm);
+  background: var(--rose-light);
+  color: #9f1239;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .unit {
   font-size: 0.75rem;
   font-weight: 600;
@@ -357,6 +378,16 @@ body {
 .radio-item:hover, .checkbox-item:hover {
   background-color: var(--slate-100);
   border-color: var(--slate-300);
+}
+
+.radio-item:has(input:disabled), .checkbox-item:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.radio-item:has(input:disabled) .radio-label,
+.checkbox-item:has(input:disabled) .checkbox-label {
+  cursor: not-allowed;
 }
 
 .radio-item input:checked + .radio-label,
@@ -555,6 +586,11 @@ body {
   color: var(--slate-700);
 }
 .btn-outline:hover { background-color: var(--slate-100); }
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 /* Table Style */
 .table-responsive {

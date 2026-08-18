@@ -1,0 +1,8 @@
+{
+  "name": "nice-diabetes-2026",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check clinical-engine.js && node --check app.js"
+  }
+}

@@ -9,11 +9,11 @@
 
 1. **⚡ 一鍵處方計算器 (Interactive Rx Algorithm Engine)**
    - 根據病患年齡、BMI、eGFR、心衰竭（HFrEF/HFpEF）、動脈硬化心血管疾病（ASCVD）、腦中風（Stroke/TIA）、衰弱分期（Frailty）與吞嚥功能，即時推算 2026 NICE 首選處方。
-   - 動態計算個人化糖化血色素（HbA1c）目標（6.5% vs 7.0% vs 7.5%~8.0%+）。
-   - 自動判別是否符合 NICE 4 大連續血糖監測（CGM）公費/優先推薦指標。
+   - 動態計算個人化糖化血色素（HbA1c）目標；高齡或衰弱者依 NICE 1.5.9 提示逐案共同決策，不預設固定放寬數值。
+   - 依 NICE NG28 1.7 嚴格判別 CGM 優先推薦條件，區分多次每日胰島素注射、低血糖風險、監測障礙與照護協助需求。
 
 2. **🪜 階梯調藥時程軸 (Stepwise Titration & Staging Timeline)**
-   - 視覺化展示 Week 0（Metformin XR 500mg 起步）➔ Week 2~4（毫不延遲加上 SGLT-2 抑制劑）➔ Week 8~12（加用 GLP-1 RA / Tirzepatide）之標準滴定與避險路徑。
+   - 依目前腎功能、飲食、衰弱風險與共病即時產生個人化啟動／評估順序，不以固定週數覆蓋禁忌或共同決策。
 
 3. **🧪 慢性腎臟病 (CKD) 依 eGFR 分期處方地圖**
    - 聚焦 2026 重大突破：**eGFR 20～30 ml/min 仍可啟動/續用 SGLT-2 抑制劑（Dapagliflozin / Empagliflozin）護腎**，並停用 Metformin 改搭 DPP-4 抑制劑安全降糖。
@@ -24,7 +24,7 @@
 5. **🧠 腦中風與吞嚥障礙專題 (Stroke & Dysphagia Management)**
    - **重大用藥警語**：緩釋型 Metformin XR 嚴禁磨粉管灌！
    - 吞嚥困難與管灌患者之標準速效劑型磨粉、口服懸液劑與 DPP-4i 替換方案。
-   - 缺血性腦中風二級預防四大支柱（Clopidogrel 75mg、高強度 Statin、達標降壓、GLP-1 RA 降中風）。
+   - 缺血性腦中風／TIA 視為 ASCVD，糖尿病初始用藥依 NICE NG28 1.15 評估皮下注射 Semaglutide（最高 1mg/週）。
 
 6. **🥗 糖尿病逆轉緩解計畫 (NHS Path to Remission)**
    - 12 週總代餐（TDR 800 kcal/day）➔ 食物重組 ➔ 長期體重維持三階段 SOP。
@@ -39,6 +39,19 @@
 - **前端核心**：HTML5 + 原生 Vanilla CSS + 原生 Vanilla JavaScript（無第三方龐大框架依賴，極速載入與流暢響應）。
 - **設計系統**：現代醫療專業配色（Navy, Teal, Rose, Amber, Emerald, Purple）、卡片式微陰影、無障礙語意標籤與流暢動畫。
 - **響應式支援**：完整支援桌上型電腦、平板與智慧型手機。
+
+## 🧪 測試與驗證 (Testing & QA)
+
+```bash
+npm test
+npm run check
+python test_app.py
+python debug_scan.py
+```
+
+- `npm test`：執行真實臨床決策引擎的單元與邊界回歸測試。
+- `npm run check`：檢查瀏覽器應用與臨床引擎的 JavaScript 語法。
+- Python 檢查：驗證 DOM 參照、列印樣式、無障礙結構，並再次執行臨床回歸測試。
 
 ---
 
